@@ -1,4 +1,4 @@
-# Ramener PDF Renamer
+# Ramener - AI PDF Renamer
 
 Python utility that extracts metadata from PDF reports using the `qwen-flash` model and renames files following `YYYY-MM-DD_Source_Title.pdf`. It targets macOS Finder Quick Action integration so you can right-click a PDF and trigger the workflow.
 
@@ -83,6 +83,7 @@ If the workflow cannot export environment variables, save the API key to `~/.con
 - Verbose output streams to Automator, making macOS display any errors in a dialog.
 - Use `--dry-run` to inspect metadata extraction without touching files.
 - When the model response lacks enough detail, the filename falls back to the current date and original stem.
+- Basic PII scrubbing (emails, long numeric IDs) happens automatically before text is sent to the model to reduce moderation failures.
 
 ## Next Steps
 

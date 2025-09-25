@@ -16,6 +16,7 @@ from .llm_client import BailianClient, BailianError
 from .metadata import DocumentMetadata
 from .naming import FilenameBuildError, build_filename
 from .pdf_extractor import PdfExtractionError, extract_text
+from .text_sanitizer import sanitize_excerpt
 
 
 def _configure_logging(log_path: str | None, verbose: bool) -> None:
@@ -103,9 +104,13 @@ def main(argv: list[str] | None = None) -> int:
         logging.error("PDF extraction failed: %s", exc)
         return 3
 
+    sanitized_excerpt = sanitize_excerpt(excerpt)
+    if sanitized_excerpt != excerpt:
+        logging.debug("Excerpt sanitized before LLM request.")
+
     client = BailianClient(config)
     try:
-        generation = client.analyze_document(excerpt)
+        generation = client.analyze_document(sanitized_excerpt)
     except BailianError as exc:
         logging.error("LLM request failed: %s", exc)
         return 4
@@ -133,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
         return 6
 
     logging.info("Renamed copy saved to %s", destination)
+    print(destination)
     return 0
 
 
