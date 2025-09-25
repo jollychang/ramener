@@ -78,6 +78,8 @@ If the workflow cannot export environment variables, save the API key to `~/.con
 
 5. Save as `Rename PDF via AI`. It appears in Finder’s right-click **Quick Actions** menu.
 
+Skip finder “Quick Actions” if you prefer a Toolbar button? See **Automator Application** below.
+
 ## Logging & Troubleshooting
 
 - Verbose output streams to Automator, making macOS display any errors in a dialog.
@@ -88,3 +90,40 @@ If the workflow cannot export environment variables, save the API key to `~/.con
 ## Next Steps
 
 Future improvements can include batch processing, configurable filename templates, OCR integration for scanned PDFs, and a SwiftUI front-end that wraps this CLI.
+
+## Automator Application & Finder Toolbar Button
+
+You can also create an Automator **Application** so the workflow can sit in Finder’s toolbar.
+
+1. Launch Automator → New **Application**.
+2. Add **Get Selected Finder Items** (ensures the current selection is forwarded).
+3. Add **Run Shell Script** with the same shell (`/bin/zsh`) and script content as below:
+
+```bash
+source "$HOME/Works/ramener/.venv/bin/activate"
+
+if [ "$#" -eq 0 ]; then
+  osascript -e 'display alert "Ramener" message "Please select a PDF before running."' >/dev/null 2>&1
+  exit 1
+fi
+
+new_files=()
+for file in "$@"; do
+  output=$(ramener "$file")
+  exit_code=$?
+  if [ "$exit_code" -eq 0 ] && [ -n "$output" ]; then
+    new_files+=("$output")
+  else
+    printf 'Ramener failed for %s\n' "$file" >&2
+  fi
+done
+
+if [ "${#new_files[@]}" -gt 0 ]; then
+  last="${new_files[-1]}"
+  sleep 0.2
+  open -R "$last"
+fi
+```
+
+4. Save to `~/Applications/Rename PDF via AI.app` (or another location).
+5. In Finder, open `View → Customize Toolbar…`, then drag the new `.app` onto the toolbar. Clicking it now processes the selected PDFs and reveals the new file.
