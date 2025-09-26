@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from dataclasses import asdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import requests
 
@@ -30,6 +30,12 @@ JSON_SCHEMA_EXAMPLE = {
 
 DATE_PATTERN = re.compile(
     r"(20\d{2}|19\d{2})[./-](0?[1-9]|1[0-2])[./-](0?[1-9]|[12]\d|3[01])"
+)
+
+OCR_SYSTEM_PROMPT = (
+    "You are an OCR assistant. Accurately transcribe the text content from the provided images. "
+    "Preserve natural reading order and keep original numbers and punctuation intact. "
+    "Return plain text without additional commentary."
 )
 
 
@@ -146,3 +152,62 @@ class BailianClient:
 
         logger.debug("Parsed metadata: %s", asdict(metadata))
         return GenerationResult(metadata=metadata, raw_response=json_block)
+
+    def ocr_images(self, images: Sequence[str]) -> str:
+        if not images:
+            raise BailianError("No images supplied for OCR.")
+
+        model = self.config.ocr_model or self.config.model
+
+        content: List[Dict[str, Any]] = [
+            {
+                "type": "text",
+                "text": "Transcribe all visible text from these PDF pages."
+                " Preserve layout order and keep numbers unchanged.",
+            }
+        ]
+
+        for idx, encoded in enumerate(images, start=1):
+            data_url = f"data:image/png;base64,{encoded}"
+            content.append({"type": "text", "text": f"Page {idx}:"})
+            content.append({"type": "image_url", "image_url": {"url": data_url}})
+
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": OCR_SYSTEM_PROMPT},
+                {"role": "user", "content": content},
+            ],
+            "temperature": 0.0,
+        }
+
+        logger.debug(
+            "Sending OCR payload with %d images to model %s", len(images), model
+        )
+        data = self._request(payload)
+
+        try:
+            message = data["choices"][0]["message"]
+            content_value = message["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise BailianError(f"Unexpected OCR response: {data}") from exc
+
+        if isinstance(content_value, list):
+            # OpenAI-compatible APIs may return structured content lists.
+            text_parts: List[str] = []
+            for item in content_value:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text = item.get("text")
+                    if isinstance(text, str):
+                        text_parts.append(text)
+            content_value = "\n".join(text_parts)
+
+        if not isinstance(content_value, str):
+            raise BailianError("OCR response did not contain text content.")
+
+        transcription = content_value.strip()
+        if not transcription:
+            raise BailianError("OCR response was empty.")
+
+        logger.debug("OCR transcription length: %d characters", len(transcription))
+        return transcription

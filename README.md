@@ -1,11 +1,14 @@
 # Ramener - AI PDF Renamer
 
-Python utility that extracts metadata from PDF reports using the `qwen-flash` model and renames files following `YYYY-MM-DD_Source_Title.pdf`. It targets macOS Finder Quick Action integration so you can right-click a PDF and trigger the workflow.
+Python utility that extracts metadata from PDF reports using the `qwen3-omni-flash` model and renames files following `YYYY-MM-DD_Source_Title.pdf`. It targets macOS Finder Quick Action integration so you can right-click a PDF and trigger the workflow.
 
 ## Requirements
 
 - macOS with Python 3.10+
-- Aliyun Bailian API key with access to `qwen-flash`
+- Aliyun Bailian API key with access to `qwen3-omni-flash`
+- Optional OCR fallback (for scanned PDFs) requires:
+  - `pdf2image` and `Pillow` Python packages (installed via `pip install -r requirements.txt`)
+  - Poppler command line tools (`brew install poppler`) so PDF pages can be rasterized before sending to the LLM
 
 Set up a virtual environment and install the package:
 
@@ -33,8 +36,9 @@ Optional environment overrides:
 
 - `RAMENER_API_KEY_FILE` (override path to the API key file)
 - `RAMENER_BASE_URL` (default `https://dashscope.aliyuncs.com/compatible-mode/v1`)
-- `RAMENER_MODEL` (default `qwen-flash`)
-- `RAMENER_PAGE_LIMIT` (default `3`)
+- `RAMENER_MODEL` (default `qwen3-omni-flash`)
+- `RAMENER_OCR_MODEL` (default reuses `RAMENER_MODEL` for OCR fallback)
+- `RAMENER_PAGE_LIMIT` (default `3` pages)
 - `RAMENER_TIMEOUT` (default `30.0` seconds)
 - `RAMENER_MAX_TEXT_CHARS` (default `12000`)
 - `RAMENER_LOG_PATH` (log file path)
@@ -52,7 +56,9 @@ python -m ramener path/to/report.pdf
 Helpful flags:
 
 - `--dry-run` outputs the target filename without copying or trashing.
-- `--page-limit 5` overrides the default pages parsed.
+- `--page-limit 5` restricts the pages parsed (default reads the first 3 pages).
+- `--max-text-chars 20000` raises the character cap (default 12000; use 0 to disable).
+- `--ocr-model qwen3-omni-flash` overrides the model used when falling back to LLM OCR.
 - `--log-file ~/Library/Logs/Ramener/ramener.log` stores verbose logs.
 
 On completion the script copies the PDF to a new filename in the same directory and moves the original to the Trash.
@@ -85,7 +91,8 @@ Skip finder “Quick Actions” if you prefer a Toolbar button? See **Automator 
 - Verbose output streams to Automator, making macOS display any errors in a dialog.
 - Use `--dry-run` to inspect metadata extraction without touching files.
 - When the model response lacks enough detail, the filename falls back to the current date and original stem.
-- Basic PII scrubbing (emails, long numeric IDs) happens automatically before text is sent to the model to reduce moderation failures.
+- Basic PII scrubbing (emails, obvious booking/invoice references, phone numbers) happens automatically before text is sent to the model to reduce moderation failures.
+- If the PDF has no embedded text, the extractor automatically renders the first few pages to images and sends them to the configured LLM for OCR. Check logs for `OCR fallback` messages if Poppler is missing or the request fails.
 
 ## Next Steps
 

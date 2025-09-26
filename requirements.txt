@@ -2,3 +2,5 @@ pypdf>=4.0.0
 requests>=2.31.0
 python-dateutil>=2.8.2
 send2trash>=1.8.2
+pdf2image>=1.17.0
+Pillow>=10.0.0

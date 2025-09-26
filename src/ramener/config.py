@@ -5,10 +5,10 @@ from typing import Optional
 
 
 DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-DEFAULT_MODEL = "qwen-flash"
+DEFAULT_MODEL = "qwen3-omni-flash"
 DEFAULT_PAGE_LIMIT = 3
 DEFAULT_TIMEOUT = 30.0
-MAX_TEXT_CHARS = 12000
+DEFAULT_MAX_TEXT_CHARS = 12000
 DEFAULT_KEY_FILE = Path.home() / ".config" / "ramener" / "api_key"
 
 
@@ -19,8 +19,9 @@ class AppConfig:
     model: str = DEFAULT_MODEL
     page_limit: int = DEFAULT_PAGE_LIMIT
     request_timeout: float = DEFAULT_TIMEOUT
-    max_text_chars: int = MAX_TEXT_CHARS
+    max_text_chars: int = DEFAULT_MAX_TEXT_CHARS
     log_path: Optional[str] = None
+    ocr_model: Optional[str] = None
 
     @classmethod
     def from_env(
@@ -28,6 +29,7 @@ class AppConfig:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
+        ocr_model: Optional[str] = None,
         page_limit: Optional[int] = None,
         request_timeout: Optional[float] = None,
         max_text_chars: Optional[int] = None,
@@ -44,15 +46,16 @@ class AppConfig:
 
         base = base_url or os.environ.get("RAMENER_BASE_URL") or DEFAULT_BASE_URL
         model_name = model or os.environ.get("RAMENER_MODEL") or DEFAULT_MODEL
-        page_limit_value = page_limit or int(
+        page_limit_value = page_limit if page_limit is not None else int(
             os.environ.get("RAMENER_PAGE_LIMIT", DEFAULT_PAGE_LIMIT)
         )
         timeout_value = request_timeout or float(
             os.environ.get("RAMENER_TIMEOUT", DEFAULT_TIMEOUT)
         )
-        max_chars_value = max_text_chars or int(
-            os.environ.get("RAMENER_MAX_TEXT_CHARS", MAX_TEXT_CHARS)
+        max_chars_value = max_text_chars if max_text_chars is not None else int(
+            os.environ.get("RAMENER_MAX_TEXT_CHARS", DEFAULT_MAX_TEXT_CHARS)
         )
+        ocr_model_value = ocr_model or os.environ.get("RAMENER_OCR_MODEL")
         log_path_value = log_path or os.environ.get("RAMENER_LOG_PATH")
 
         return cls(
@@ -63,6 +66,7 @@ class AppConfig:
             request_timeout=timeout_value,
             max_text_chars=max_chars_value,
             log_path=log_path_value,
+            ocr_model=ocr_model_value,
         )
 
 
