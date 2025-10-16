@@ -1,136 +1,80 @@
 # Ramener - AI PDF Renamer
 
-Python utility that extracts metadata from PDF reports using the `qwen3-omni-flash` model and renames files following `YYYY-MM-DD_Source_Title.pdf`. It targets macOS Finder Quick Action integration so you can right-click a PDF and trigger the workflow.
+Ramener reads the first few pages of a PDF, calls Aliyun Bailian (`qwen3-omni-flash`) to extract metadata, then renames the file to `YYYY-MM-DD_Source_Title.pdf`. It is optimised for macOS and ships as a standalone app plus light Finder integrations.
 
-## Requirements
+## macOS Install & First Run
 
-- macOS with Python 3.10+
-- Aliyun Bailian API key with access to `qwen3-omni-flash`
-- Optional OCR fallback (for scanned PDFs) requires:
-  - `pdf2image` and `Pillow` Python packages (installed via `pip install -r requirements.txt`)
-  - Poppler command line tools (`brew install poppler`) so PDF pages can be rasterized before sending to the LLM
+1. Build (or download) the latest `Ramener.dmg` and drag `Ramener.app` into `/Applications`.
+2. Launch `Ramener.app`. A native settings window appears—fill in the service name, API key, model, and base URL. Values are saved to `~/.config/ramener/settings.json` for both the app and CLI.
+3. Open Finder and select any PDF, then choose your preferred integration:
+   - Double-click `Ramener.app` and browse to a PDF when prompted, or
+   - Add the toolbar/script integrations below for one-click access.
 
-Set up a virtual environment and install the package:
+## Finder Toolbar Button (Optional)
+
+Run the helper script to generate a ready-to-use toolbar applet:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+./scripts/install_finder_toolbar.sh
 ```
 
-Export the API key (or keep it in a config file):
+The script creates `~/Applications/Ramener Toolbar.app`, detects an installed `ramener` CLI or the bundled `/Applications/Ramener.app`, and then opens Finder so you can drag the helper into the toolbar (`View → Customize Toolbar…`). Clicking the button processes the selected PDFs and reveals the renamed file.
+
+## Finder Quick Action (Optional)
+
+1. Open **Automator** → **Quick Action**.
+2. Configure the workflow to receive `PDF files` in `Finder` and ensure **Output replaces selected items** is unchecked.
+3. Add a **Run Shell Script** action with:
+   - Shell: `/bin/zsh`
+   - Pass input: `as arguments`
+4. Example script body:
+
+   ```bash
+   "/Applications/Ramener.app/Contents/MacOS/ramener" "${1}"
+   ```
+
+   (Adjust if you keep the app elsewhere.)
+5. Save as `Rename PDF via AI`. It now appears under Finder → **Quick Actions**.
+
+## Command-Line Usage (Advanced)
+
+The app bundle includes a console entry point. After `pip install -e '.[mac]'` (for contributors) or when the CLI is otherwise available, you can run:
 
 ```bash
-export RAMENER_API_KEY="sk-..."
-```
-
-Or create `~/.config/ramener/api_key` so the Quick Action can read the key without extra environment setup:
-
-```bash
-mkdir -p ~/.config/ramener
-printf "sk-..." > ~/.config/ramener/api_key
-chmod 600 ~/.config/ramener/api_key
-```
-
-Optional environment overrides:
-
-- `RAMENER_API_KEY_FILE` (override path to the API key file)
-- `RAMENER_BASE_URL` (default `https://dashscope.aliyuncs.com/compatible-mode/v1`)
-- `RAMENER_MODEL` (default `qwen3-omni-flash`)
-- `RAMENER_OCR_MODEL` (default reuses `RAMENER_MODEL` for OCR fallback)
-- `RAMENER_PAGE_LIMIT` (default `3` pages)
-- `RAMENER_TIMEOUT` (default `30.0` seconds)
-- `RAMENER_MAX_TEXT_CHARS` (default `12000`)
-- `RAMENER_LOG_PATH` (log file path)
-
-## CLI Usage
-
-After installation you can run either the module or the console script:
-
-```bash
-ramener path/to/report.pdf
-# or
-python -m ramener path/to/report.pdf
+ramener /path/to/report.pdf
 ```
 
 Helpful flags:
-
-- `--dry-run` outputs the target filename without copying or trashing.
-- `--page-limit 5` restricts the pages parsed (default reads the first 3 pages).
-- `--max-text-chars 20000` raises the character cap (default 12000; use 0 to disable).
-- `--ocr-model qwen3-omni-flash` overrides the model used when falling back to LLM OCR.
-- `--log-file ~/Library/Logs/Ramener/ramener.log` stores verbose logs.
-
-On completion the script copies the PDF to a new filename in the same directory and moves the original to the Trash.
-
-## Finder Quick Action
-
-1. Open **Automator** and create a new **Quick Action**.
-2. Configure:
-   - **Workflow receives current** → `PDF files`
-   - **in** → `Finder`
-   - Tick **Output replaces selected items** off.
-3. Add the **Run Shell Script** action:
-   - Shell: `/bin/zsh`
-   - Pass input: `as arguments`
-4. Script body example (adjust paths if the repo lives elsewhere):
-
-```bash
-source "$HOME/Works/ramener/.venv/bin/activate"
-ramener "${1}"
-```
-
-If the workflow cannot export environment variables, save the API key to `~/.config/ramener/api_key` and the script will read it automatically.
-
-5. Save as `Rename PDF via AI`. It appears in Finder’s right-click **Quick Actions** menu.
-
-Skip finder “Quick Actions” if you prefer a Toolbar button? See **Automator Application** below.
+- `--dry-run` prints the target filename without copying or trashing.
+- `--page-limit`, `--max-text-chars`, and `--ocr-model` tune extraction behaviour.
+- `--settings` opens the macOS settings window from the terminal.
 
 ## Logging & Troubleshooting
 
-- Verbose output streams to Automator, making macOS display any errors in a dialog.
-- Use `--dry-run` to inspect metadata extraction without touching files.
-- When the model response lacks enough detail, the filename falls back to the current date and original stem.
-- Basic PII scrubbing (emails, obvious booking/invoice references, phone numbers) happens automatically before text is sent to the model to reduce moderation failures.
-- If the PDF has no embedded text, the extractor automatically renders the first few pages to images and sends them to the configured LLM for OCR. Check logs for `OCR fallback` messages if Poppler is missing or the request fails.
+- Detailed logs roll to `~/Library/Logs/Ramener/ramener.log` by default; override with `--log-file` or `RAMENER_LOG_PATH`.
+- OCR fallback needs Poppler (`brew install poppler`) plus Pillow/pdf2image when running from source.
+- Failures surface as macOS alerts when triggered via Automator/toolbar.
 
-## Next Steps
+## Developer Setup
 
-Future improvements can include batch processing, configurable filename templates, OCR integration for scanned PDFs, and a SwiftUI front-end that wraps this CLI.
+Ramener is packaged with PyInstaller, but the following is useful for local development:
 
-## Automator Application & Finder Toolbar Button
+- Requirements: macOS, Python 3.10+, Poppler (for OCR), Aliyun Bailian API access.
+- Bootstrap environment:
 
-You can also create an Automator **Application** so the workflow can sit in Finder’s toolbar.
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -e '.[mac]'
+  ```
 
-1. Launch Automator → New **Application**.
-2. Add **Get Selected Finder Items** (ensures the current selection is forwarded).
-3. Add **Run Shell Script** with the same shell (`/bin/zsh`) and script content as below:
+- Optional environment overrides:
+  `RAMENER_API_KEY_FILE`, `RAMENER_BASE_URL`, `RAMENER_MODEL`, `RAMENER_OCR_MODEL`, `RAMENER_PAGE_LIMIT`, `RAMENER_TIMEOUT`, `RAMENER_MAX_TEXT_CHARS`, `RAMENER_LOG_PATH`, `RAMENER_SERVICE_NAME`.
 
-```bash
-source "$HOME/Works/ramener/.venv/bin/activate"
+## Building the macOS Bundle
 
-if [ "$#" -eq 0 ]; then
-  osascript -e 'display alert "Ramener" message "Please select a PDF before running."' >/dev/null 2>&1
-  exit 1
-fi
+1. Ensure PyInstaller is installed in your environment (`pip install pyinstaller`).
+2. Run `./scripts/build_dmg.sh`.
+3. The script produces `dist/Ramener.app` and `dist/Ramener.dmg`. Codesign and notarise `dist/Ramener.app` as needed before distributing the DMG.
 
-new_files=()
-for file in "$@"; do
-  output=$(ramener "$file")
-  exit_code=$?
-  if [ "$exit_code" -eq 0 ] && [ -n "$output" ]; then
-    new_files+=("$output")
-  else
-    printf 'Ramener failed for %s\n' "$file" >&2
-  fi
-done
-
-if [ "${#new_files[@]}" -gt 0 ]; then
-  last="${new_files[-1]}"
-  sleep 0.2
-  open -R "$last"
-fi
-```
-
-4. Save to `~/Applications/Rename PDF via AI.app` (or another location).
-5. In Finder, open `View → Customize Toolbar…`, then drag the new `.app` onto the toolbar. Clicking it now processes the selected PDFs and reveals the new file.
+Icons live under `packaging/` (`ramener.png` source, `ramener.icns` bundle icon). If you edit the PNG, regenerate the `.icns` with `python scripts/make_icns.py` before rebuilding.

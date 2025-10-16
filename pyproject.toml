@@ -17,9 +17,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = []
+mac = [
+    "pyobjc-framework-Cocoa>=9.0",
+]
 
 [project.scripts]
 ramener = "ramener.main:main"
+ramener-settings = "ramener.settings_ui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
