@@ -98,3 +98,11 @@ Icons live under `packaging/` (`ramener.png` source, `ramener.icns` bundle icon)
    ```
 3. Create a GitHub release (web UI or `gh release create v0.2.0 dist/Ramener.dmg --notes "…"`) and attach `dist/Ramener.dmg`. Optionally add `dist/Ramener.app` for users who prefer copying bundles manually.
 4. Include release notes summarising changes, system requirements, and any notarisation status.
+
+You can automate the process via the helper script:
+
+```bash
+./scripts/create_release.sh v0.2.0 --notes "Bug fixes and Finder integration improvements"
+```
+
+The script rebuilds the DMG, creates the Git tag if it doesn’t already exist, pushes it to the `origin` remote (override with `GIT_REMOTE=upstream`), and then creates or updates the GitHub release (requires the GitHub CLI `gh`).
